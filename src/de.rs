@@ -137,6 +137,16 @@ impl<R> Deserializer<R>
             .chain_err(|| ErrorKind::EndOfBuffer)?;
         String::from_utf8(buffer).chain_err(|| ErrorKind::BadStringData)
     }
+
+    fn get_bytes(&mut self) -> Result<Vec<u8>> {
+        let length = self.pop_length()?;
+        self.reserve_bytes(length)?;
+        let mut buffer = vec![0; length as usize];
+        self.reader
+            .read_exact(&mut buffer)
+            .chain_err(|| ErrorKind::EndOfBuffer)?;
+        Ok(buffer)
+    }
 }
 
 macro_rules! impl_nums {
@@ -238,14 +248,14 @@ impl<'de, 'a, R: io::Read> de::Deserializer<'de> for &'a mut Deserializer<R> {
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
         where V: de::Visitor<'de>
     {
-        self.deserialize_seq(visitor)
+        visitor.visit_byte_buf(self.get_bytes()?)
     }
 
     #[inline]
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
         where V: de::Visitor<'de>
     {
-        self.deserialize_seq(visitor)
+        visitor.visit_byte_buf(self.get_bytes()?)
     }
 
     #[inline]
